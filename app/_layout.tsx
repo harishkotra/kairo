@@ -6,14 +6,20 @@ import { StyleSheet } from 'react-native';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { WorkspaceProvider } from '../src/workspace/WorkspaceContext';
 import { workspace } from '../src/theme/tokens';
-import { initializeLaminarSdk } from '../src/telemetry/laminar';
-
-// Platform instruction: Laminar.initialize() via project API key
-initializeLaminarSdk();
+import { initLaminar } from '../src/telemetry/laminar';
 
 export default function RootLayout() {
   useEffect(() => {
-    initializeLaminarSdk();
+    // Only attempt Laminar init if a project API key is configured.
+    // The SDK cannot run in all web environments, so we check at runtime.
+    const key = (
+      process.env.EXPO_PUBLIC_LMNR_PROJECT_API_KEY ??
+      process.env.LMNR_PROJECT_API_KEY ??
+      ''
+    ).trim();
+    if (key) {
+      initLaminar();
+    }
   }, []);
 
   return (

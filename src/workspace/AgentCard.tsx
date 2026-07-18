@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { AgentRuntime } from '../agents/types';
 import { workspace, radius, spacing, typography } from '../theme/tokens';
+import { shadowStyle } from '../theme/shadowStyle';
 import { formatDuration } from './format';
 
 type Props = {
@@ -274,8 +275,7 @@ const styles = StyleSheet.create({
     padding: spacing[3],
     paddingTop: spacing[3] + 4,
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    ...shadowStyle({ color: '#000', offsetY: 6, opacity: 0.4, radius: 14, elevation: 6 }),
   },
   topStripe: {
     position: 'absolute',

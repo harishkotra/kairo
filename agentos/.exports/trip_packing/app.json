@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Trip Packing",
+    "slug": "trip_packing",
+    "version": "1.0.0",
+    "scheme": "trip_packing",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}

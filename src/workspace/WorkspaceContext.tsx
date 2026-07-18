@@ -32,6 +32,7 @@ import {
 } from '../artifacts/graph';
 import { planAppFromPrompt } from '../ai/appPlanner';
 import { inferAgentInsights } from '../ai/agentInference';
+import { generateScreenContent } from '../ai/screenContent';
 import { canUseLiveAi, getDefaultAiMode } from '../ai/config';
 import { MemoryService } from '../memory/MemoryService';
 import { canUseMem0 } from '../memory/mem0Client';
@@ -39,9 +40,13 @@ import type { MemoryEntry } from '../memory/types';
 import { laminar, laminarStatus } from '../telemetry/laminar';
 import {
   bootAgentVm,
+  exportProjectToServer,
+  sharePreviewState,
   stopAgentVm,
   writeAgentWorkspace,
 } from '../agentos/client';
+
+export type TimelineFilter = { label: string; types: string[] };
 
 type WorkspaceContextValue = WorkspaceState & {
   setUserPrompt: (p: string) => void;
@@ -63,6 +68,9 @@ type WorkspaceContextValue = WorkspaceState & {
   selectArtifact: (id: string | null) => void;
   selectedDecisionId: string | null;
   selectDecision: (id: string | null) => void;
+  /** Filter applied to the timeline view (event-type prefixes). */
+  timelineFilter: TimelineFilter | null;
+  setTimelineFilter: (f: TimelineFilter | null) => void;
   setReplayActive: (v: boolean) => void;
   setReplayCursorMs: (ms: number) => void;
   setReplayPlaying: (v: boolean) => void;
@@ -133,6 +141,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [canvasScale, setCanvasScale] = useState(1);
   const [darkModePreview, setDarkModePreview] = useState(true);
   const [view, setView] = useState<WorkspaceView>('canvas');
+  const [timelineFilter, setTimelineFilter] = useState<TimelineFilter | null>(
+    null
+  );
   const [useMockAi, setUseMockAiState] = useState(
     () => getDefaultAiMode() === 'mock' || !canUseLiveAi()
   );
@@ -436,6 +447,33 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      // AI-enrich screen content for screen agents
+      if (def.screenSpec && !mock) {
+        const rich = await generateScreenContent(
+          def.screenSpec,
+          brief,
+          plan?.projectName ?? 'App',
+          mock
+        );
+        if (rich !== def.screenSpec && rich.sections.length > 0) {
+          updateAgent(id, { screenSpec: rich });
+          // Also update the appPlan so DynamicScreen renders enriched content
+          const currentPlan = planRef.current;
+          if (currentPlan) {
+            const idx = currentPlan.screens.findIndex(
+              (s) => s.id === def.screenSpec?.id
+            );
+            if (idx >= 0) {
+              const updated = [...currentPlan.screens];
+              updated[idx] = rich;
+              const newPlan = { ...currentPlan, screens: updated };
+              planRef.current = newPlan;
+              setAppPlan(newPlan);
+            }
+          }
+        }
+      }
+
       const completedAt = Date.now();
       const { graph, created } = mergeAgentArtifacts(
         artifactGraphRef.current,
@@ -633,8 +671,19 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             screens: plan.screens.length,
             live: planned.usedLive,
             tokens: planned.tokenUsage.total,
+            reasoning: planned.reasoningSummary.slice(0, 300),
           },
         });
+
+        if (!planned.usedLive && !mock && planned.tokenUsage.total === 0) {
+          pushEvent({
+            type: 'agent.reasoning',
+            agentId: 'planner',
+            title: 'AI planning failed',
+            detail: planned.reasoningSummary,
+            meta: { live: false, fallback: 'dynamic_mock' },
+          });
+        }
 
         await memoryRef.current.seedRun(plan.projectName);
         await memoryRef.current.add({
@@ -704,6 +753,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         });
         laminar.endPipeline(true, { 'kairo.duration_ms': ended - origin });
         syncMemories();
+        // Share the app plan with the agentOS server so the /preview route
+        // can render it when opened fresh (e.g. via Expo Go QR scan).
+        sharePreviewState(plan, plan.projectName).catch(() => {});
       } catch {
         if (!cancelRef.current.cancelled) {
           setPhase('idle');
@@ -751,14 +803,35 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     laminar.endPipeline(false, { 'kairo.reset': true });
   }, [pushEvent]);
 
-  const exportProject = useCallback(() => {
+  const exportProject = useCallback(async () => {
     setPhase((p) => (p === 'complete' ? 'exporting' : p));
     const exportSpan = laminar.startChild('export.expo', 'export');
     pushEvent({
       type: 'export',
       title: 'Export package',
-      detail: 'Local Expo project paths',
+      detail: 'Generating standalone Expo project…',
     });
+
+    const plan = planRef.current;
+    if (plan) {
+      const result = await exportProjectToServer(plan, plan.projectName);
+      if (result.ok && result.path) {
+        const msg = `Project exported to:\n${result.path}\n\n${result.message}`;
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.alert('Export complete\n\n' + msg);
+        } else {
+          Alert.alert('Export complete', msg);
+        }
+        setExportSucceeded(true);
+        laminar.endChild(exportSpan, true);
+        setTimeout(() => {
+          setPhase((p) => (p === 'exporting' ? 'complete' : p));
+        }, 800);
+        return;
+      }
+    }
+
+    // Fallback: show old alert
     const message =
       'Project sources in this repo:\n\n' +
       '• Theme: src/theme/\n' +
@@ -870,6 +943,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       selectArtifact: setSelectedArtifactId,
       selectedDecisionId,
       selectDecision: setSelectedDecisionId,
+      timelineFilter,
+      setTimelineFilter,
       setReplayActive,
       setReplayCursorMs,
       setReplayPlaying,
@@ -912,6 +987,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       completedScreenIds,
       selectedArtifactId,
       selectedDecisionId,
+      timelineFilter,
       runDurationMs,
       memories,
       totals,

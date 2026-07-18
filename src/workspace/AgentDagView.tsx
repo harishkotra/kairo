@@ -18,6 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { AgentId, AgentRuntime } from '../agents/types';
 import { workspace, spacing, typography } from '../theme/tokens';
+import { shadowStyle } from '../theme/shadowStyle';
 import { dagStatusColor, dagStatusLabel } from './replay';
 import { useDisplayState } from './useDisplayState';
 import { useWorkspace } from './WorkspaceContext';
@@ -298,8 +299,7 @@ const styles = StyleSheet.create({
     minHeight: NODE_H,
     borderWidth: 1.5,
     padding: 10,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 4,
+    ...shadowStyle({ color: '#000', radius: 4, elevation: 4 }),
   },
   nodeTop: {
     flexDirection: 'row',

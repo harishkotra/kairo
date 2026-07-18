@@ -11,8 +11,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
 import { workspace, spacing, typography } from '../theme/tokens';
+import { shadowStyle } from '../theme/shadowStyle';
 import { useWorkspace } from './WorkspaceContext';
-import { getLivePreviewUrl, type LivePreviewUrlInfo } from './previewUrl';
+import { resolveLivePreviewUrl, type LivePreviewUrlInfo } from './previewUrl';
 
 /**
  * QR + deep link for Expo Go once the primary screen ships.
@@ -27,22 +28,36 @@ export function LivePreviewPanel({ compact }: { compact?: boolean }) {
     phase === 'running' &&
     screenAgents.some((id) => agents[id]?.status !== 'complete');
 
-  const [info, setInfo] = useState<LivePreviewUrlInfo>(() =>
-    getLivePreviewUrl()
-  );
+  const [qrMode, setQrMode] = useState<'web' | 'expo'>('web');
+  const [info, setInfo] = useState<LivePreviewUrlInfo>(() => ({
+    url: 'exp://localhost:8081/--/preview',
+    webPath: '/preview',
+    hostLabel: 'localhost:8081',
+    scheme: 'exp',
+    isLanReachable: false,
+    source: 'initial',
+  }));
 
-  // Re-resolve host (Constants may populate after mount on web)
+  // Resolve host: try static sources + agentOS LAN IP endpoint
   useEffect(() => {
-    setInfo(getLivePreviewUrl());
-    const t = setInterval(() => {
-      setInfo(getLivePreviewUrl());
-    }, 2000);
-    return () => clearInterval(t);
+    let cancelled = false;
+    const update = async () => {
+      const resolved = await resolveLivePreviewUrl();
+      if (!cancelled) setInfo(resolved);
+    };
+    update();
+    // Poll because the agentOS server may become reachable
+    const t = setInterval(update, 3000);
+    return () => { cancelled = true; clearInterval(t); };
   }, []);
 
   if (!previewReady) return null;
 
-  const { url, webPath, hostLabel, isLanReachable, hint } = info;
+  const { webPath, hostLabel, isLanReachable, hint } = info;
+  // 'web' opens the phone's browser (no Expo Go needed — works even when
+  // the store's Expo Go lags behind this project's SDK).
+  const url =
+    qrMode === 'web' ? `http://${hostLabel}${webPath}` : info.url;
 
   const openPreview = () => {
     router.push(webPath as '/preview');
@@ -82,13 +97,31 @@ export function LivePreviewPanel({ compact }: { compact?: boolean }) {
             {stillBuilding ? 'EVOLVING' : 'LIVE'}
           </Text>
         </View>
-        <Text style={styles.title}>Expo Go preview</Text>
+        <Text style={styles.title}>Preview on phone</Text>
         <Text style={styles.body}>
-          Scan with Expo Go on a phone
-          {stillBuilding
-            ? ' while remaining screens keep building.'
-            : ' — same Wi‑Fi (or tunnel) as this machine.'}
+          {qrMode === 'web'
+            ? 'Scan with your camera — opens in the phone browser. Same Wi‑Fi.'
+            : 'Scan with Expo Go (must support this SDK). Same Wi‑Fi.'}
         </Text>
+      </View>
+
+      <View style={styles.modeRow}>
+        {(['web', 'expo'] as const).map((mode) => (
+          <Pressable
+            key={mode}
+            onPress={() => setQrMode(mode)}
+            style={[styles.modePill, qrMode === mode && styles.modePillOn]}
+          >
+            <Text
+              style={[
+                styles.modePillLabel,
+                qrMode === mode && styles.modePillLabelOn,
+              ]}
+            >
+              {mode === 'web' ? 'Browser' : 'Expo Go'}
+            </Text>
+          </Pressable>
+        ))}
       </View>
 
       <View style={styles.qrWrap}>
@@ -116,9 +149,18 @@ export function LivePreviewPanel({ compact }: { compact?: boolean }) {
           !isLanReachable && { color: workspace.danger },
         ]}
       >
-        {isLanReachable ? 'Expo Go · ' : 'Not phone-reachable · '}
+        {isLanReachable
+          ? qrMode === 'web'
+            ? 'Browser · '
+            : 'Expo Go · '
+          : 'Not phone-reachable · '}
         {hostLabel}
       </Text>
+      {isLanReachable ? (
+        <Text style={styles.webUrl} selectable numberOfLines={2}>
+          Web: http://{info.hostLabel}/preview
+        </Text>
+      ) : null}
       {hint ? (
         <Text style={styles.hint} numberOfLines={compact ? 3 : 4}>
           {hint}
@@ -215,7 +257,30 @@ const styles = StyleSheet.create({
     padding: spacing[3],
     maxWidth: 300,
   },
-  top: { marginBottom: spacing[3] },
+  top: { marginBottom: spacing[2] },
+  modeRow: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: workspace.border,
+    alignSelf: 'flex-start',
+    marginBottom: spacing[2],
+  },
+  modePill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  modePillOn: {
+    backgroundColor: workspace.accentSoft,
+  },
+  modePillLabel: {
+    color: workspace.textDim,
+    fontSize: 11,
+    fontWeight: typography.weight.medium,
+  },
+  modePillLabelOn: {
+    color: workspace.accent,
+    fontWeight: typography.weight.semibold,
+  },
   livePill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -270,6 +335,13 @@ const styles = StyleSheet.create({
     fontFamily: workspace.mono,
     textAlign: 'center',
     marginTop: 4,
+  },
+  webUrl: {
+    color: workspace.accentCool,
+    fontSize: 10,
+    fontFamily: workspace.mono,
+    textAlign: 'center',
+    marginTop: 6,
   },
   hint: {
     color: workspace.amber,
@@ -339,9 +411,6 @@ const styles = StyleSheet.create({
     top: spacing[3],
     zIndex: 30,
     maxWidth: 320,
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
+    ...shadowStyle({ color: '#000', offsetY: 8, opacity: 0.35, radius: 16 }),
   },
 });

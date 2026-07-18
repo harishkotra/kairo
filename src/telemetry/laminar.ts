@@ -65,7 +65,11 @@ function baseUrl(): string {
  * Loads @lmnr-ai/lmnr and initializes with project API key.
  */
 export function initLaminar(): boolean {
-  if (initAttempted && LaminarRef?.initialized()) return true;
+  // Once init fails permanently, do not retry (avoid repeated crashes)
+  if (initAttempted) {
+    if (LaminarRef?.initialized()) return true;
+    return false;
+  }
   initAttempted = true;
 
   const key = projectApiKey();
@@ -75,8 +79,22 @@ export function initLaminar(): boolean {
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require('@lmnr-ai/lmnr') as LaminarModule;
+    // Lazy-require only when needed and API key is present.
+    // On web, @lmnr-ai/lmnr may reference Node APIs — catch gracefully.
+    let mod: LaminarModule;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      mod = require('@lmnr-ai/lmnr') as LaminarModule;
+    } catch {
+      sdkLoadError = 'Failed to load @lmnr-ai/lmnr module (web environment?)';
+      return false;
+    }
+
+    if (!mod?.Laminar) {
+      sdkLoadError = '@lmnr-ai/lmnr module loaded but Laminar export missing';
+      return false;
+    }
+
     LaminarRef = mod.Laminar;
 
     if (!LaminarRef.initialized()) {

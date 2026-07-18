@@ -172,7 +172,7 @@ Screen: ${def.screenSpec ? JSON.stringify(def.screenSpec) : 'n/a'}`;
         { role: 'system', content: system },
         { role: 'user', content: user },
       ],
-      { temperature: 0.35, maxTokens: 700, agentId: def.id }
+      { temperature: 0.4, maxTokens: 1000, agentId: def.id }
     );
 
     type Parsed = {

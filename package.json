@@ -5,10 +5,12 @@
   "description": "Kairo — observability for autonomous software engineering (Expo multi-agent workspace)",
   "main": "expo-router/entry",
   "scripts": {
+    "dev": "concurrently -n agentos,expo -c cyan,green --kill-others \"npm run agentos\" \"expo start\"",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "dev:web": "concurrently -n agentos,expo -c cyan,green --kill-others \"npm run agentos\" \"expo start --web\"",
     "typecheck": "tsc --noEmit",
     "agentos": "npm run dev --prefix agentos",
     "agentos:install": "npm install --prefix agentos"
@@ -39,6 +41,7 @@
   "devDependencies": {
     "@types/react": "~19.2.2",
     "babel-preset-expo": "^57.0.3",
+    "concurrently": "^10.0.3",
     "typescript": "~5.9.2"
   }
 }

@@ -70,8 +70,14 @@ function EventRow({
 
 /** Full timeline view (center panel) */
 export function EventTimeline() {
-  const { selectAgent, phase, selectDecision } = useWorkspace();
-  const { events, agents, isReplayView } = useDisplayState();
+  const { selectAgent, phase, selectDecision, timelineFilter, setTimelineFilter } =
+    useWorkspace();
+  const { events: allEvents, agents, isReplayView } = useDisplayState();
+  const events = timelineFilter
+    ? allEvents.filter((e) =>
+        timelineFilter.types.some((t) => e.type.startsWith(t))
+      )
+    : allEvents;
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -88,21 +94,39 @@ export function EventTimeline() {
           <Text style={styles.eyebrow}>TRACE</Text>
           <Text style={styles.heading}>Event timeline</Text>
         </View>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>
-            {events.length} events
-            {phase === 'running' ? ' · live' : ''}
-            {isReplayView ? ' · replay' : ''}
-          </Text>
+        <View style={styles.headerRight}>
+          {timelineFilter ? (
+            <Pressable
+              onPress={() => setTimelineFilter(null)}
+              style={styles.filterChip}
+            >
+              <Text style={styles.filterChipText}>
+                {timelineFilter.label} ✕
+              </Text>
+            </Pressable>
+          ) : null}
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>
+              {events.length}
+              {timelineFilter ? `/${allEvents.length}` : ''} events
+              {phase === 'running' ? ' · live' : ''}
+              {isReplayView ? ' · replay' : ''}
+            </Text>
+          </View>
         </View>
       </View>
 
       {events.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <Text style={styles.emptyTitle}>No events yet</Text>
+          <Text style={styles.emptyTitle}>
+            {timelineFilter && allEvents.length > 0
+              ? 'No matching events'
+              : 'No events yet'}
+          </Text>
           <Text style={styles.emptyBody}>
-            Start a build. Every agent start, step, artifact, handoff, and
-            completion lands here so a run is replayable.
+            {timelineFilter && allEvents.length > 0
+              ? `Nothing in this run matches “${timelineFilter.label}”. Clear the filter to see all ${allEvents.length} events.`
+              : 'Start a build. Every agent start, step, artifact, handoff, and completion lands here so a run is replayable.'}
           </Text>
         </View>
       ) : (
@@ -218,6 +242,24 @@ const styles = StyleSheet.create({
     fontWeight: typography.weight.semibold,
     letterSpacing: -0.3,
     marginTop: 2,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterChip: {
+    borderWidth: 1,
+    borderColor: workspace.accent + '66',
+    backgroundColor: workspace.accentSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  filterChipText: {
+    color: workspace.accent,
+    fontSize: 11,
+    fontFamily: workspace.mono,
+    fontWeight: typography.weight.semibold,
   },
   badge: {
     borderWidth: 1,

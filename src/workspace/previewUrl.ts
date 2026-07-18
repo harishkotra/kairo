@@ -25,8 +25,19 @@ function isLoopback(host: string): boolean {
     h === '127.0.0.1' ||
     h === '0.0.0.0' ||
     h === '::1' ||
-    h === '[::1]'
+    h === '[::1]' ||
+    h.startsWith('169.254.') // link-local: never phone-reachable
   );
+}
+
+/** Higher = more likely reachable from a phone on the same Wi‑Fi. */
+function hostScore(hostPort: string): number {
+  const h = hostPort.split(':')[0] ?? '';
+  if (/^192\.168\./.test(h) || /^10\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h)) {
+    return 3;
+  }
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(h)) return 2;
+  return 1; // hostname such as my-mac.local
 }
 
 function stripProtocol(hostOrUrl: string): string {
@@ -36,21 +47,15 @@ function stripProtocol(hostOrUrl: string): string {
     .replace(/\/$/, '');
 }
 
-/** host:port without path */
 function normalizeHostPort(raw: string): string | null {
   if (!raw?.trim()) return null;
   let s = stripProtocol(raw.trim());
-  // drop path/query
   s = s.split('/')[0] ?? s;
   s = s.split('?')[0] ?? s;
   if (!s || isLoopback(s)) return null;
   return s;
 }
 
-/**
- * Collect candidate packager hosts from Expo runtime + browser.
- * Prefer non-loopback LAN / tunnel hosts so Expo Go on a phone can connect.
- */
 function collectHostCandidates(): Array<{ host: string; source: string }> {
   const out: Array<{ host: string; source: string }> = [];
   const push = (raw: string | null | undefined, source: string) => {
@@ -61,86 +66,55 @@ function collectHostCandidates(): Array<{ host: string; source: string }> {
     out.push({ host, source });
   };
 
-  // Explicit override for demos / corporate networks
   push(process.env.EXPO_PUBLIC_DEV_SERVER_HOST, 'EXPO_PUBLIC_DEV_SERVER_HOST');
 
-  const c = Constants as {
-    expoConfig?: { hostUri?: string } | null;
-    expoGoConfig?: { debuggerHost?: string } | null;
-    linkingUri?: string;
-    experienceUrl?: string;
-    manifest2?: {
-      extra?: {
-        expoClient?: { hostUri?: string; debuggerHost?: string };
-        expoGo?: { debuggerHost?: string };
-      };
-    } | null;
-    manifest?: {
-      debuggerHost?: string;
-      hostUri?: string;
-    } | null;
-  };
+  const c = Constants as Record<string, any>;
 
-  push(c.expoConfig?.hostUri, 'expoConfig.hostUri');
-  push(c.expoGoConfig?.debuggerHost, 'expoGoConfig.debuggerHost');
-  push(c.manifest2?.extra?.expoGo?.debuggerHost, 'manifest2.expoGo');
-  push(c.manifest2?.extra?.expoClient?.hostUri, 'manifest2.expoClient.hostUri');
-  push(
-    c.manifest2?.extra?.expoClient?.debuggerHost,
-    'manifest2.expoClient.debuggerHost'
-  );
-  push(c.manifest?.debuggerHost, 'manifest.debuggerHost');
-  push(c.manifest?.hostUri, 'manifest.hostUri');
+  push(c?.expoConfig?.hostUri, 'expoConfig.hostUri');
+  push(c?.expoGoConfig?.debuggerHost, 'expoGoConfig.debuggerHost');
+  push(c?.manifest2?.extra?.expoGo?.debuggerHost, 'manifest2.expoGo');
+  push(c?.manifest2?.extra?.expoClient?.hostUri, 'manifest2.expoClient.hostUri');
+  push(c?.manifest2?.extra?.expoClient?.debuggerHost, 'manifest2.expoClient.debuggerHost');
+  push(c?.manifest?.debuggerHost, 'manifest.debuggerHost');
+  push(c?.manifest?.hostUri, 'manifest.hostUri');
 
-  // linkingUri often: exp://192.168.x.x:8081/--/ or exp://localhost:8081
-  if (c.linkingUri) {
+  if (c?.linkingUri) {
     try {
       const m = c.linkingUri.match(/exps?:\/\/([^/]+)/i);
       if (m?.[1]) push(m[1], 'linkingUri');
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   }
-  if (c.experienceUrl) {
+  if (c?.experienceUrl) {
     try {
       const m = c.experienceUrl.match(/exps?:\/\/([^/]+)/i);
       if (m?.[1]) push(m[1], 'experienceUrl');
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   }
 
-  // Browser: if the page itself is opened via LAN IP / hostname, use that
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     try {
       const { hostname, port, host } = window.location;
       if (!isLoopback(hostname)) {
-        // Metro web often on 8081; if page has a port use it
         push(host || `${hostname}${port ? `:${port}` : ''}`, 'window.location');
       }
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   }
 
-  return out;
+  // Stable sort: private LAN IPs first, then other IPs, then hostnames
+  return out
+    .map((c, i) => ({ c, i, s: hostScore(c.host) }))
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .map((x) => x.c);
 }
 
-/**
- * Build an Expo Go deep link into the /preview route.
- * Format: exp://HOST:PORT/--/preview
- * (Expo Router path after /--/)
- */
 function toExpoGoUrl(hostPort: string): string {
   const cleaned = hostPort.replace(/\/$/, '');
-  // Tunnel hosts sometimes already include path-like segments — keep host:port only
   const host = cleaned.split('/')[0] ?? cleaned;
   return `exp://${host}/--${PREVIEW_PATH}`;
 }
 
 /**
- * URL for scanning with Expo Go / sharing to a phone.
- * Never encodes localhost when a LAN or tunnel host is available.
+ * Build initial preview URL from static sources.
  */
 export function getLivePreviewUrl(): LivePreviewUrlInfo {
   const webPath = PREVIEW_PATH;
@@ -150,8 +124,7 @@ export function getLivePreviewUrl(): LivePreviewUrlInfo {
   if (best) {
     const url = toExpoGoUrl(best.host);
     return {
-      url,
-      webPath,
+      url, webPath,
       hostLabel: best.host,
       scheme: 'exp',
       isLanReachable: true,
@@ -160,9 +133,7 @@ export function getLivePreviewUrl(): LivePreviewUrlInfo {
     };
   }
 
-  // Fallbacks when only loopback is known
   let fallback = Linking.createURL(PREVIEW_PATH);
-  // createURL on web often yields exp://localhost:8081/--/preview — still not scannable
   const loopbackHost =
     Platform.OS === 'web' && typeof window !== 'undefined'
       ? `${window.location.hostname}${window.location.port ? `:${window.location.port}` : ':8081'}`
@@ -180,6 +151,38 @@ export function getLivePreviewUrl(): LivePreviewUrlInfo {
     isLanReachable: false,
     source: 'loopback',
     hint:
-      'This host is not reachable from a phone. Start Expo with LAN or tunnel, or set EXPO_PUBLIC_DEV_SERVER_HOST=YOUR_LAN_IP:8081',
+      'QR points at localhost — a phone cannot reach it. Run `npm run agentos` so Kairo can detect your LAN IP, or set EXPO_PUBLIC_DEV_SERVER_HOST=YOUR_LAN_IP:8081 and restart Expo.',
   };
 }
+
+/**
+ * Async version that also queries the agentOS server for the LAN IP.
+ * Use this to get a better QR URL when the static sources only know localhost.
+ */
+export async function resolveLivePreviewUrl(): Promise<LivePreviewUrlInfo> {
+  // Try static sources first
+  const staticInfo = getLivePreviewUrl();
+  if (staticInfo.isLanReachable) return staticInfo;
+
+  // Fallback: ask the agentOS server for our LAN IP
+  try {
+    const { getLanIp } = await import('../agentos/client');
+    const lanIp = await getLanIp();
+    if (lanIp) {
+      const port = staticInfo.hostLabel.split(':')[1] ?? '8081';
+      const hostPort = `${lanIp}:${port}`;
+      const url = toExpoGoUrl(hostPort);
+      return {
+        url, webPath: PREVIEW_PATH,
+        hostLabel: hostPort,
+        scheme: 'exp',
+        isLanReachable: true,
+        source: 'agentos-lan-ip',
+        hint: 'Detected LAN IP from server. Same Wi‑Fi required.',
+      };
+    }
+  } catch { /* agentOS server may be down */ }
+
+  return staticInfo;
+}
+

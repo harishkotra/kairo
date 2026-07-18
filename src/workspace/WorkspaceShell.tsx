@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { workspace } from '../theme/tokens';
 import { TopBar } from './TopBar';
+import { ActivityTicker } from './ActivityTicker';
 import { LeftSidebar } from './LeftSidebar';
 import { InspectorPanel } from './InspectorPanel';
 import { InfiniteCanvas } from './InfiniteCanvas';
@@ -30,6 +31,7 @@ export function WorkspaceShell() {
       <StatusBar style="light" />
       <View style={styles.root}>
         <TopBar />
+        <ActivityTicker />
         <View style={styles.body}>
           {showLeft && !compact ? <LeftSidebar /> : null}
           <View style={styles.center}>

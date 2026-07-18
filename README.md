@@ -89,10 +89,11 @@ git clone https://github.com/harishkotra/kairo.git
 cd kairo
 npm install
 cp .env.example .env   # add keys as needed
-npx expo start
+npm run agentos:install
+npm run dev            # starts the agentOS bridge + Expo together
 ```
 
-Press **`w`** for web (best for the workspace UI).
+Press **`w`** for web (best for the workspace UI), or use `npm run dev:web` to open web directly. The agentOS bridge is required for the Expo Go QR to resolve your LAN IP and serve the preview to phones.
 
 1. Pick an example brief or write your own  
 2. **Build app**  
@@ -105,7 +106,7 @@ Press **`w`** for web (best for the workspace UI).
 ```bash
 npm run agentos:install
 npm run agentos
-# → http://localhost:6420
+# → http://localhost:7420
 # Workspaces: agentos/.vms/
 ```
 
@@ -180,7 +181,9 @@ Live preview (DynamicScreen) + Expo Go exp://HOST/--/preview
 
 | Command | Description |
 |---------|-------------|
-| `npm start` / `npx expo start` | Expo dev server |
+| `npm run dev` | agentOS bridge + Expo, one terminal |
+| `npm run dev:web` | Same, opening the web workspace |
+| `npm start` / `npx expo start` | Expo dev server only |
 | `npm run web` | Web only |
 | `npm run ios` / `android` | Native simulators |
 | `npm run typecheck` | `tsc --noEmit` |
@@ -200,7 +203,7 @@ Live preview (DynamicScreen) + Expo Go exp://HOST/--/preview
 | `EXPO_PUBLIC_LMNR_PROJECT_API_KEY` | Laminar project API key |
 | `EXPO_PUBLIC_LMNR_BASE_URL` | Default `https://api.lmnr.ai` |
 | `EXPO_PUBLIC_MEM0_API_KEY` | Optional mem0 |
-| `EXPO_PUBLIC_AGENTOS_URL` | Default `http://localhost:6420` |
+| `EXPO_PUBLIC_AGENTOS_URL` | Default `http://localhost:7420` |
 | `EXPO_PUBLIC_DEV_SERVER_HOST` | Force Expo Go host `IP:PORT` |
 
 ---
@@ -216,14 +219,6 @@ Kairo is not only an agent demo — it’s a **mobile delivery loop**:
 - **Observability** so product and eng can debug agent decisions, not only final UI  
 
 Use it to explore product shapes quickly, then harden the generated structure into production Expo code under the same token system.
-
----
-
-## Security notes
-
-- Never commit `.env` — only `.env.example`  
-- API keys stay client-side for this prototype; production apps should proxy inference server-side  
-- agentOS `.vms/` workspaces are local and gitignored  
 
 ---
 

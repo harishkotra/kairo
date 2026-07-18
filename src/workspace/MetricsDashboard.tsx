@@ -1,5 +1,13 @@
 import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Animated,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { cumulativeSeries, Meter, Sparkline, useChangeFlash, useCountUp } from './viz';
 import { agentName } from '../agents/definitions';
 import { computeRunMetrics } from '../metrics/compute';
 import { workspace, spacing, typography } from '../theme/tokens';
@@ -23,7 +31,14 @@ export function MetricsDashboard() {
     memories,
     phase,
     agentOrder,
+    setTimelineFilter,
+    setView,
   } = useWorkspace();
+
+  const jumpTo = (label: string, types: string[]) => () => {
+    setTimelineFilter({ label, types });
+    setView('timeline');
+  };
   const { agents, artifacts, events, decisions, isReplayView } =
     useDisplayState();
 
@@ -57,6 +72,20 @@ export function MetricsDashboard() {
     isReplayView,
   ]);
 
+  const series = useMemo(() => {
+    const ts = (types?: string[]) =>
+      events
+        .filter((e) => !types || types.some((t) => e.type.startsWith(t)))
+        .map((e) => e.ts);
+    return {
+      all: cumulativeSeries(ts()),
+      artifacts: cumulativeSeries(ts(['artifact.'])),
+      agents: cumulativeSeries(ts(['agent.started', 'agent.complete'])),
+      memory: cumulativeSeries(ts(['memory.'])),
+      decisions: cumulativeSeries(decisions.map((d) => d.ts)),
+    };
+  }, [events, decisions]);
+
   return (
     <ScrollView
       style={styles.root}
@@ -76,13 +105,17 @@ export function MetricsDashboard() {
       <View style={styles.grid}>
         <Metric
           label="Agents spawned"
-          value={String(m.agentsSpawned)}
+          num={m.agentsSpawned}
           hint={`${m.agentsComplete} complete`}
+          series={series.agents}
+          onPress={jumpTo('Agents', ['agent.started', 'agent.complete', 'agent.queued', 'agent.waiting'])}
         />
         <Metric
           label="Files created"
-          value={String(m.filesCreated)}
+          num={m.filesCreated}
           hint="layouts · screens · tokens"
+          series={series.artifacts}
+          onPress={jumpTo('Artifacts', ['artifact.'])}
         />
         <Metric
           label="Components reused"
@@ -92,35 +125,49 @@ export function MetricsDashboard() {
               ? `Top: ${m.mostReusedComponent.name} ×${m.mostReusedComponent.count}`
               : 'No reuse yet'
           }
+          fraction={
+            m.componentsCreated > 0
+              ? m.componentsReused / m.componentsCreated
+              : undefined
+          }
         />
         <Metric
           label="Avg parallelism"
-          value={m.averageParallelism.toFixed(2)}
+          num={m.averageParallelism}
+          format={(n) => n.toFixed(2)}
           hint="concurrent agents"
         />
         <Metric
           label="Avg wait time"
-          value={formatDuration(Math.round(m.averageWaitMs))}
+          num={Math.round(m.averageWaitMs)}
+          format={(n) => formatDuration(Math.round(n))}
           hint="blocked → start"
         />
         <Metric
           label="Retries"
-          value={String(m.totalRetries)}
+          num={m.totalRetries}
           hint="across agents"
+          alert={m.totalRetries > 0}
+          onPress={jumpTo('Retries', ['agent.retry', 'agent.error'])}
         />
         <Metric
           label="Reasoning time"
-          value={formatDuration(m.reasoningTimeMs)}
+          num={m.reasoningTimeMs}
+          format={(n) => formatDuration(Math.round(n))}
           hint="est. inference share"
+          onPress={jumpTo('Reasoning', ['agent.reasoning'])}
         />
         <Metric
           label="Token usage"
-          value={formatTokens(m.tokenUsage.total)}
+          num={m.tokenUsage.total}
+          format={(n) => formatTokens(Math.round(n))}
           hint={`${formatTokens(m.tokenUsage.prompt)}↑ ${formatTokens(m.tokenUsage.completion)}↓`}
+          series={series.all}
         />
         <Metric
           label="Est. cost"
-          value={formatUsd(m.costUsd)}
+          num={m.costUsd}
+          format={(n) => formatUsd(n)}
           hint="model pricing table"
         />
         <Metric
@@ -143,16 +190,20 @@ export function MetricsDashboard() {
               : '—'
           }
           hint={`${m.decisionsCount} decisions`}
+          fraction={m.averageConfidence > 0 ? m.averageConfidence : undefined}
+          onPress={jumpTo('Decisions', ['agent.decision'])}
         />
         <Metric
           label="Design consistency"
           value={`${Math.round(m.designConsistency * 100)}%`}
           hint="reuse + warning penalty"
+          fraction={m.designConsistency}
         />
         <Metric
           label="Accessibility"
           value={`${Math.round(m.accessibilityScore * 100)}%`}
           hint="contrast / a11y steps"
+          fraction={m.accessibilityScore}
         />
         <Metric
           label="Export success"
@@ -161,17 +212,25 @@ export function MetricsDashboard() {
         />
         <Metric
           label="Events"
-          value={String(m.eventsCount)}
+          num={m.eventsCount}
           hint="trace length"
+          series={series.all}
+          onPress={() => {
+            setTimelineFilter(null);
+            setView('timeline');
+          }}
         />
         <Metric
           label="Memories"
-          value={String(m.memoriesCount)}
+          num={m.memoriesCount}
           hint="shared + agent"
+          series={series.memory}
+          onPress={jumpTo('Memory', ['memory.'])}
         />
         <Metric
           label="Run duration"
-          value={formatDuration(m.runDurationMs)}
+          num={m.runDurationMs}
+          format={(n) => formatDuration(Math.round(n))}
           hint="wall clock"
         />
       </View>
@@ -191,26 +250,83 @@ export function MetricsDashboard() {
 function Metric({
   label,
   value,
+  num,
+  format,
   hint,
   wide,
+  series,
+  fraction,
+  alert,
+  onPress,
 }: {
   label: string;
-  value: string;
+  /** Static display string (used when `num` is absent). */
+  value?: string;
+  /** Numeric value — animates with a count-up when it changes. */
+  num?: number;
+  format?: (n: number) => string;
   hint?: string;
   wide?: boolean;
+  /** Cumulative series → sparkline in the card corner. */
+  series?: number[];
+  /** 0..1 → slim meter bar under the value. */
+  fraction?: number;
+  /** Tint the value when the metric deserves attention (e.g. retries). */
+  alert?: boolean;
+  /** Tap → jump to filtered timeline. */
+  onPress?: () => void;
 }) {
+  const animated = useCountUp(num ?? 0);
+  const display =
+    num != null
+      ? (format ?? ((n: number) => String(Math.round(n))))(animated)
+      : (value ?? '—');
+  const flash = useChangeFlash(num != null ? num : value);
+
   return (
-    <View style={[styles.card, wide && styles.cardWide]}>
-      <Text style={styles.label}>{label}</Text>
-      <Text style={styles.value} numberOfLines={2}>
-        {value}
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      style={({ pressed }) => [
+        styles.card,
+        wide && styles.cardWide,
+        onPress && pressed && { borderColor: workspace.accent + '88' },
+      ]}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.cardFlash,
+          {
+            opacity: flash.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 0.14],
+            }),
+          },
+        ]}
+      />
+      <View style={styles.cardTop}>
+        <Text style={styles.label}>{label}</Text>
+        {series && series.length > 1 ? (
+          <Sparkline data={series} width={64} height={22} />
+        ) : null}
+      </View>
+      <Text
+        style={[styles.value, alert && { color: workspace.amber }]}
+        numberOfLines={2}
+      >
+        {display}
       </Text>
+      {fraction != null ? <Meter fraction={fraction} /> : null}
       {hint ? (
         <Text style={styles.hint} numberOfLines={2}>
           {hint}
         </Text>
       ) : null}
-    </View>
+      {onPress ? (
+        <Text style={styles.jumpHint}>trace →</Text>
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -257,6 +373,22 @@ const styles = StyleSheet.create({
     borderColor: workspace.border,
     backgroundColor: workspace.panelElevated,
     padding: spacing[3],
+    overflow: 'hidden',
+  },
+  cardFlash: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: workspace.accent,
+    opacity: 0,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8,
   },
   cardWide: {
     width: '100%',
@@ -280,6 +412,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 6,
     lineHeight: 15,
+  },
+  jumpHint: {
+    color: workspace.accentCool,
+    fontSize: 9,
+    fontFamily: workspace.mono,
+    marginTop: 6,
+    letterSpacing: 0.5,
   },
   note: {
     marginHorizontal: spacing[4],

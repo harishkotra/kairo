@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ThemeProvider } from '../theme/ThemeProvider';
 import { workspace, typography } from '../theme/tokens';
+import { shadowStyle } from '../theme/shadowStyle';
 import type { AgentId, ScreenSpec } from '../agents/types';
 import { DynamicScreen } from '../generated/DynamicScreen';
 
@@ -164,11 +165,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#2C2C30',
     padding: BEZEL,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 28 },
-    shadowOpacity: 0.55,
-    shadowRadius: 48,
-    elevation: 24,
+    ...shadowStyle({ color: '#000', offsetY: 28, opacity: 0.55, radius: 48, elevation: 24 }),
   },
   silent: {
     position: 'absolute',

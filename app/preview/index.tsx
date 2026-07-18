@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -10,21 +10,54 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { DynamicScreen } from '../../src/generated/DynamicScreen';
 import { useWorkspace } from '../../src/workspace/WorkspaceContext';
+import { fetchPreviewState } from '../../src/agentos/client';
 import { spacing, typography } from '../../src/theme/tokens';
+import type { AppPlan } from '../../src/agents/types';
 
 /**
  * Live preview: tabs driven by the planned product screens (not hard-coded).
+ *
+ * When opened fresh (e.g. via Expo Go QR scan), this route fetches the
+ * latest app plan from the agentOS server — shared by the pipeline on
+ * completion — so the built app content renders instead of an empty state.
  */
 export default function PreviewHome() {
-  const { appPlan, projectName, completedScreenIds } = useWorkspace();
+  const { appPlan: ctxPlan, projectName, completedScreenIds } = useWorkspace();
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
+  const [serverState, setServerState] = useState<AppPlan | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // If opened fresh (no context state), fetch from agentOS server
+  useEffect(() => {
+    if (ctxPlan) {
+      setServerState(null);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const data = await fetchPreviewState();
+        if (!cancelled && data?.appPlan) {
+          setServerState(data.appPlan as AppPlan);
+        }
+      } catch {
+        // agentOS server not running — show empty state
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [ctxPlan]);
+
+  const appPlan = ctxPlan ?? serverState;
   const screens = appPlan?.screens ?? [];
   const [active, setActive] = useState(0);
 
   const available = useMemo(() => {
     if (!screens.length) return [];
-    // Prefer completed screens; fall back to all planned for browsing after idle
     const done = screens.filter((s) => completedScreenIds.includes(s.id));
     return done.length ? done : screens;
   }, [screens, completedScreenIds]);
@@ -35,13 +68,26 @@ export default function PreviewHome() {
   if (!appPlan || !current) {
     return (
       <View style={[styles.empty, { backgroundColor: colors.background }]}>
-        <Text style={[styles.emptyTitle, { color: colors.text }]}>
-          No product plan yet
-        </Text>
-        <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
-          Build an app from a product brief on the workspace canvas. Screens
-          appear here as agents ship them.
-        </Text>
+        {loading ? (
+          <>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
+              Loading preview…
+            </Text>
+            <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
+              Connecting to the Kairo pipeline to load the built app.
+            </Text>
+          </>
+        ) : (
+          <>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
+              No product plan yet
+            </Text>
+            <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
+              Build an app from a product brief on the workspace canvas.
+              Screens appear here as agents ship them.
+            </Text>
+          </>
+        )}
       </View>
     );
   }

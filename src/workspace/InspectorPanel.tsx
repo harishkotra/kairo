@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { agentName } from '../agents/definitions';
 import { workspace, radius, spacing, typography } from '../theme/tokens';
@@ -44,6 +44,62 @@ function Section({
       <Text style={styles.sectionLabel}>{title}</Text>
       {children}
     </View>
+  );
+}
+
+/**
+ * Horizontal bar breakdown of token usage across every agent, with the
+ * inspected agent highlighted — where did the inference budget go?
+ */
+function TokensByAgent({
+  agents,
+  selectedId,
+}: {
+  agents: ReturnType<typeof useDisplayState>['agents'];
+  selectedId: string;
+}) {
+  const { selectAgent } = useWorkspace();
+  const rows = Object.values(agents)
+    .filter((a) => a.tokenUsage.total > 0)
+    .sort((a, b) => b.tokenUsage.total - a.tokenUsage.total);
+  if (rows.length === 0) return null;
+  const max = rows[0].tokenUsage.total;
+
+  return (
+    <Section title="TOKENS BY AGENT">
+      {rows.map((a) => {
+        const selected = a.id === selectedId;
+        return (
+          <Pressable
+            key={a.id}
+            onPress={() => selectAgent(a.id)}
+            style={[styles.tokRow, selected && styles.tokRowSelected]}
+          >
+            <Text
+              style={[styles.tokName, selected && { color: workspace.text }]}
+              numberOfLines={1}
+            >
+              {a.name}
+            </Text>
+            <View style={styles.tokTrack}>
+              <View
+                style={[
+                  styles.tokFill,
+                  {
+                    width: `${Math.max(3, (a.tokenUsage.total / max) * 100)}%`,
+                    backgroundColor: a.color,
+                    opacity: selected ? 1 : 0.55,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.tokValue}>
+              {formatTokens(a.tokenUsage.total)}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </Section>
   );
 }
 
@@ -249,6 +305,11 @@ export function InspectorPanel() {
             <MetaRow label="Depends on" value={depLabel} />
           </View>
         </Section>
+
+        <TokensByAgent
+          agents={agents}
+          selectedId={agent.id}
+        />
 
         <Section title="REASONING SUMMARY">
           <Text style={styles.prose}>
@@ -679,5 +740,37 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: workspace.mono,
     marginTop: 4,
+  },
+  tokRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  tokRowSelected: {
+    backgroundColor: workspace.panelElevated,
+  },
+  tokName: {
+    width: 82,
+    color: workspace.textMuted,
+    fontSize: 10,
+    fontFamily: workspace.mono,
+  },
+  tokTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: workspace.border + '55',
+    overflow: 'hidden',
+  },
+  tokFill: {
+    height: 8,
+  },
+  tokValue: {
+    width: 44,
+    textAlign: 'right',
+    color: workspace.textDim,
+    fontSize: 10,
+    fontFamily: workspace.mono,
   },
 });
