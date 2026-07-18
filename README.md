@@ -2,9 +2,13 @@
 
 **Observability for multi-agent mobile software engineering.**
 
-Kairo is a collaborative workspace where specialized agents design and ship an Expo mobile app from a product brief — while every step stays inspectable: agents, VMs, events, artifacts, decisions, memory, metrics, live device previews, and backend traces.
+Kairo is a collaborative workspace where specialized agents design and ship an Expo mobile app from a product brief, while every step stays inspectable: agents, VMs, events, artifacts, decisions, memory, metrics, live device previews, and backend traces.
 
 Describe the product. Agents plan screens, run in isolation, and compose a shared design system. You watch the build unfold on a Figma-like canvas, scrub time-travel replay, scan Expo Go QR when the primary screen ships, and export telemetry to Laminar without leaving Kairo as the control surface.
+
+#### Video Demo
+
+[https://youtu.be/n5WmgDGZk-U](https://youtu.be/n5WmgDGZk-U)
 
 ---
 
@@ -18,7 +22,7 @@ Mobile product work is usually a black box: a prompt goes in, a half-working app
 | No reuse visibility | Artifact graph (tokens → components → screens) |
 | Opaque orchestration | Agent DAG + live status colors |
 | “Works on my machine” demos | Expo Go QR + evolving live preview |
-| No telemetry trail | Laminar spans/events (SDK) — Kairo stays the UI |
+| No telemetry trail | Laminar spans/events (SDK) - Kairo stays the UI |
 | Shared-everything processes | Optional **agentOS** per-agent VM workspaces |
 
 It’s built for **mobile app development** as a first-class outcome: Expo Router, dual-theme tokens, real device frames, and a generated app you can open in Expo Go while remaining agents are still shipping screens.
@@ -30,13 +34,13 @@ It’s built for **mobile app development** as a first-class outcome: Expo Route
 ### Product entry
 - Free-text **product brief**
 - Curated **example library** (focus timer, recipes, habits, markets, budget, studio booking, trips, standups)
-- Planner (mock heuristics or live LLM) returns **navigation + 2–5 screens** — not a fixed Home/Profile/Settings shell
+- Planner (mock heuristics or live LLM) returns **navigation + 2–5 screens** - not a fixed Home/Profile/Settings shell
 
 ### Multi-agent pipeline
-1. **Architecture** — routes & navigation from the brief  
-2. **Design system** — dual-theme tokens + shared primitives  
-3. **Primary screen** — unlocks live preview / QR  
-4. **Remaining screens** — parallel agents on the same theme  
+1. **Architecture** - routes & navigation from the brief  
+2. **Design system** - dual-theme tokens + shared primitives  
+3. **Primary screen** - unlocks live preview / QR  
+4. **Remaining screens** - parallel agents on the same theme  
 
 ### Observability surfaces
 | Surface | Purpose |
@@ -52,10 +56,10 @@ It’s built for **mobile app development** as a first-class outcome: Expo Route
 | **Preview / QR** | Expo Go deep link + in-app live tabs |
 
 ### Integrations
-- **Laminar** (`@lmnr-ai/lmnr`) — `Laminar.initialize()` + spans for pipeline, agents, LLM calls  
-- **agentOS bridge** — local per-agent VMs under `agentos/` (or simulated when offline)  
-- **OpenAI-compatible inference** — OpenAI / OpenRouter / any chat-completions API  
-- **mem0** — optional shared agent memory  
+- **Laminar** (`@lmnr-ai/lmnr`) - `Laminar.initialize()` + spans for pipeline, agents, LLM calls  
+- **agentOS bridge** - local per-agent VMs under `agentos/` (or simulated when offline)  
+- **OpenAI-compatible inference** - OpenAI / OpenRouter / any chat-completions API  
+- **mem0** - optional shared agent memory  
 
 ---
 
@@ -210,7 +214,7 @@ Live preview (DynamicScreen) + Expo Go exp://HOST/--/preview
 
 ## Mobile development value
 
-Kairo is not only an agent demo — it’s a **mobile delivery loop**:
+Kairo is not only an agent demo - it’s a **mobile delivery loop**:
 
 - **Expo-native** from day one (Router, tokens, previews)  
 - **Device-accurate frames** for design review on the canvas  
@@ -224,7 +228,7 @@ Use it to explore product shapes quickly, then harden the generated structure in
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+MIT - see [LICENSE](./LICENSE).
 
 ---
 
@@ -233,4 +237,15 @@ MIT — see [LICENSE](./LICENSE).
 - Repo: https://github.com/harishkotra/kairo  
 - Expo docs (SDK 57): https://docs.expo.dev/versions/v57.0.0/  
 - Laminar: https://laminar.sh/docs  
-- agentOS concepts: https://agentos-sdk.dev/docs/  
+- agentOS concepts: https://agentos-sdk.dev/docs/
+
+#### Screenshots
+
+<img width="1955" height="1163" alt="Screenshot at Jul 18 17-36-21" src="https://github.com/user-attachments/assets/c72eabf1-cba8-4293-8ed5-9e3ba400bd61" />
+<img width="1953" height="1163" alt="Screenshot at Jul 18 17-36-37" src="https://github.com/user-attachments/assets/513edae7-ff3e-4291-919a-88c290013d74" />
+<img width="1958" height="1163" alt="Screenshot at Jul 18 17-36-50" src="https://github.com/user-attachments/assets/452714ea-4803-4352-a35e-7d1e0efa6ed4" />
+<img width="1954" height="1162" alt="Screenshot at Jul 18 17-37-23" src="https://github.com/user-attachments/assets/4f52c4c2-1272-40aa-bf1b-27b321021ff6" />
+<img width="1956" height="1166" alt="Screenshot at Jul 18 17-37-36" src="https://github.com/user-attachments/assets/da09fedc-9a61-4785-a539-0c12657f807f" />
+<img width="1960" height="1165" alt="Screenshot at Jul 18 17-37-46" src="https://github.com/user-attachments/assets/edb71634-73b1-4818-8db2-4445e6e82d90" />
+<img width="3920" height="12129" alt="screencapture-localhost-8081-2026-07-18-17_38_02" src="https://github.com/user-attachments/assets/a27c5c66-3ba3-4f79-9307-c464964b0eaf" />
+
