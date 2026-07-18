@@ -5,19 +5,18 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withTiming,
+  Easing,
 } from 'react-native-reanimated';
 import { ThemeProvider } from '../theme/ThemeProvider';
-import { layout, workspace, typography } from '../theme/tokens';
-import { HomeScreen } from '../generated/screens/HomeScreen';
-import { ProfileScreen } from '../generated/screens/ProfileScreen';
-import { SettingsScreen } from '../generated/screens/SettingsScreen';
-import type { AgentId } from '../agents/types';
-
-type ScreenKey = 'home' | 'profile' | 'settings';
+import { workspace, typography } from '../theme/tokens';
+import type { AgentId, ScreenSpec } from '../agents/types';
+import { DynamicScreen } from '../generated/DynamicScreen';
 
 type Props = {
   agentId: AgentId;
-  screenKey: ScreenKey;
+  screenSpec: ScreenSpec;
+  projectName: string;
   label: string;
   color: string;
   x: number;
@@ -28,15 +27,19 @@ type Props = {
   onSelect: () => void;
 };
 
-function ScreenBody({ screenKey }: { screenKey: ScreenKey }) {
-  if (screenKey === 'profile') return <ProfileScreen />;
-  if (screenKey === 'settings') return <SettingsScreen />;
-  return <HomeScreen />;
-}
+/** Design size of the phone shell (canvas units) */
+const FRAME_W = 260;
+const FRAME_H = 532;
+const BEZEL = 9;
+const SCREEN_R = 36;
+const SHELL_R = 42;
 
+/**
+ * Figma / FlutterFlow-style device frame.
+ */
 export function PhonePreview({
-  screenKey,
-  label,
+  screenSpec,
+  projectName,
   color,
   x,
   y,
@@ -49,11 +52,20 @@ export function PhonePreview({
   const ty = useSharedValue(y);
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
+  const appear = useSharedValue(0);
 
   React.useEffect(() => {
     tx.value = x;
     ty.value = y;
   }, [x, y, tx, ty]);
+
+  React.useEffect(() => {
+    appear.value = 0;
+    appear.value = withTiming(1, {
+      duration: 420,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [screenSpec.id, appear]);
 
   const pan = Gesture.Pan()
     .onBegin(() => {
@@ -70,49 +82,43 @@ export function PhonePreview({
     });
 
   const style = useAnimatedStyle(() => ({
-    transform: [{ translateX: tx.value }, { translateY: ty.value }],
+    opacity: appear.value,
+    transform: [
+      { translateX: tx.value },
+      { translateY: ty.value },
+      { scale: 0.96 + appear.value * 0.04 },
+    ],
   }));
-
-  const phoneScale = 0.72;
-  const w = layout.phoneWidth * phoneScale;
-  const h = layout.phoneHeight * phoneScale;
 
   return (
     <GestureDetector gesture={pan}>
       <Animated.View style={[styles.wrap, style]}>
         <View style={styles.labelRow}>
           <View style={[styles.dot, { backgroundColor: color }]} />
-          <Text style={styles.label}>{label}</Text>
-          <Text style={styles.dragHint}>drag</Text>
+          <Text style={styles.label} numberOfLines={1}>
+            {screenSpec.title}
+          </Text>
+          <Text style={styles.meta}>Device</Text>
         </View>
-        <View
-          style={[
-            styles.phone,
-            {
-              width: w,
-              height: h,
-              borderColor: color + '66',
-              borderRadius: layout.phoneRadius * phoneScale,
-            },
-          ]}
-        >
-          <View style={styles.notch} />
-          <View style={styles.screenClip}>
-            <View
-              style={{
-                width: layout.phoneWidth,
-                height: layout.phoneHeight,
-                transform: [{ scale: phoneScale }],
-              }}
-            >
+
+        <View style={styles.shell}>
+          <View style={styles.silent} />
+          <View style={styles.volUp} />
+          <View style={styles.volDown} />
+          <View style={styles.power} />
+
+          <View style={styles.screen}>
+            <View style={styles.island} />
+            <View style={styles.screenContent}>
               <ThemeProvider forcedScheme={darkMode ? 'dark' : 'light'}>
-                <View style={{ flex: 1, height: layout.phoneHeight - 40 }}>
-                  <ScreenBody screenKey={screenKey} />
-                </View>
+                <DynamicScreen
+                  spec={screenSpec}
+                  projectName={projectName}
+                />
               </ThemeProvider>
             </View>
+            <View style={styles.homeBar} />
           </View>
-          <View style={styles.homeBar} />
         </View>
       </Animated.View>
     </GestureDetector>
@@ -123,60 +129,111 @@ const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
     zIndex: 5,
+    width: FRAME_W,
   },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-    paddingHorizontal: 4,
+    gap: 8,
+    marginBottom: 10,
+    paddingHorizontal: 2,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
   label: {
     color: workspace.text,
-    fontSize: typography.size.sm,
+    fontSize: 12,
     fontWeight: typography.weight.semibold,
     flex: 1,
+    letterSpacing: -0.1,
   },
-  dragHint: {
+  meta: {
     color: workspace.textDim,
     fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    fontFamily: workspace.mono,
+    letterSpacing: 0.3,
   },
-  phone: {
-    backgroundColor: '#0A0A0C',
-    borderWidth: 2,
-    overflow: 'hidden',
+  shell: {
+    width: FRAME_W,
+    height: FRAME_H,
+    borderRadius: SHELL_R,
+    backgroundColor: '#0B0B0D',
+    borderWidth: 1.5,
+    borderColor: '#2C2C30',
+    padding: BEZEL,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.45,
-    shadowRadius: 28,
-    elevation: 16,
+    shadowOffset: { width: 0, height: 28 },
+    shadowOpacity: 0.55,
+    shadowRadius: 48,
+    elevation: 24,
   },
-  notch: {
-    alignSelf: 'center',
-    width: 72,
-    height: 16,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-    backgroundColor: '#000',
-    zIndex: 2,
+  silent: {
+    position: 'absolute',
+    left: -2,
+    top: 88,
+    width: 3,
+    height: 22,
+    borderTopLeftRadius: 1,
+    borderBottomLeftRadius: 1,
+    backgroundColor: '#3A3A3C',
   },
-  screenClip: {
+  volUp: {
+    position: 'absolute',
+    left: -2,
+    top: 128,
+    width: 3,
+    height: 40,
+    backgroundColor: '#3A3A3C',
+  },
+  volDown: {
+    position: 'absolute',
+    left: -2,
+    top: 176,
+    width: 3,
+    height: 40,
+    backgroundColor: '#3A3A3C',
+  },
+  power: {
+    position: 'absolute',
+    right: -2,
+    top: 148,
+    width: 3,
+    height: 56,
+    backgroundColor: '#3A3A3C',
+  },
+  screen: {
     flex: 1,
+    borderRadius: SCREEN_R,
     overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+  island: {
+    position: 'absolute',
+    top: 9,
+    alignSelf: 'center',
+    left: (FRAME_W - BEZEL * 2) / 2 - 54,
+    width: 108,
+    height: 28,
+    borderRadius: 18,
+    backgroundColor: '#000',
+    zIndex: 30,
+    borderWidth: 1,
+    borderColor: '#1C1C1E',
+  },
+  screenContent: {
+    flex: 1,
   },
   homeBar: {
-    alignSelf: 'center',
-    width: 80,
+    position: 'absolute',
+    bottom: 7,
+    left: (FRAME_W - BEZEL * 2) / 2 - 54,
+    width: 108,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    marginVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.32)',
+    zIndex: 30,
   },
 });

@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
 import {
-  Pressable,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
+  Pressable,
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -12,28 +12,38 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
-import { AGENT_ORDER } from '../agents/definitions';
-import type { AgentId } from '../agents/types';
+import { isScreenAgent } from '../agents/definitions';
 import { workspace, spacing, typography } from '../theme/tokens';
+import { useDisplayState } from './useDisplayState';
 import { useWorkspace } from './WorkspaceContext';
 import { AgentCard } from './AgentCard';
 import { PhonePreview } from './PhonePreview';
+import { PromptComposer } from './PromptComposer';
 
+/** Figma-like multi-scale grid */
 function GridBackground({ width, height }: { width: number; height: number }) {
   const lines = useMemo(() => {
-    const size = 40;
-    const vertical = Math.ceil(width / size) + 2;
-    const horizontal = Math.ceil(height / size) + 2;
-    const v: number[] = [];
-    const h: number[] = [];
-    for (let i = 0; i < vertical; i++) v.push(i * size);
-    for (let i = 0; i < horizontal; i++) h.push(i * size);
-    return { v, h, size };
+    const minor = 24;
+    const majorEvery = 4;
+    const vertical = Math.ceil(width / minor) + 2;
+    const horizontal = Math.ceil(height / minor) + 2;
+    const v: { x: number; major: boolean }[] = [];
+    const h: { y: number; major: boolean }[] = [];
+    for (let i = 0; i < vertical; i++) {
+      v.push({ x: i * minor, major: i % majorEvery === 0 });
+    }
+    for (let i = 0; i < horizontal; i++) {
+      h.push({ y: i * minor, major: i % majorEvery === 0 });
+    }
+    return { v, h };
   }, [width, height]);
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {lines.v.map((x) => (
+    <View
+      style={[StyleSheet.absoluteFill, { backgroundColor: workspace.bg }]}
+      pointerEvents="none"
+    >
+      {lines.v.map(({ x, major }) => (
         <View
           key={`v-${x}`}
           style={{
@@ -42,11 +52,11 @@ function GridBackground({ width, height }: { width: number; height: number }) {
             top: 0,
             bottom: 0,
             width: StyleSheet.hairlineWidth,
-            backgroundColor: workspace.grid,
+            backgroundColor: major ? workspace.gridMajor : workspace.grid,
           }}
         />
       ))}
-      {lines.h.map((y) => (
+      {lines.h.map(({ y, major }) => (
         <View
           key={`h-${y}`}
           style={{
@@ -55,7 +65,7 @@ function GridBackground({ width, height }: { width: number; height: number }) {
             left: 0,
             right: 0,
             height: StyleSheet.hairlineWidth,
-            backgroundColor: workspace.grid,
+            backgroundColor: major ? workspace.gridMajor : workspace.grid,
           }}
         />
       ))}
@@ -65,7 +75,6 @@ function GridBackground({ width, height }: { width: number; height: number }) {
 
 export function InfiniteCanvas() {
   const {
-    agents,
     selectedAgentId,
     selectAgent,
     setAgentPosition,
@@ -77,8 +86,11 @@ export function InfiniteCanvas() {
     darkModePreview,
     setDarkModePreview,
     phase,
-    generate,
+    agentOrder,
+    appPlan,
+    projectName,
   } = useWorkspace();
+  const { agents, isReplayView } = useDisplayState();
 
   const { width, height } = useWindowDimensions();
   const ox = useSharedValue(canvasOffset.x);
@@ -102,7 +114,6 @@ export function InfiniteCanvas() {
       runOnJS(setCanvasOffset)(ox.value, oy.value);
     });
 
-  // Single-finger pan on background only via wrapping background Pressable area
   const panBg = Gesture.Pan()
     .onBegin(() => {
       startOx.value = ox.value;
@@ -138,14 +149,15 @@ export function InfiniteCanvas() {
     ],
   }));
 
-  const previews = (['home', 'profile', 'settings'] as const)
-    .map((key) => {
-      const id = key as AgentId;
-      const agent = agents[id];
-      if (agent.status !== 'complete' || !agent.screenKey) return null;
-      return agent;
-    })
-    .filter(Boolean);
+  const previews = agentOrder
+    .map((id) => agents[id])
+    .filter(
+      (a) => a && a.status === 'complete' && a.screenSpec && isScreenAgent(a.id)
+    );
+
+  const flow =
+    appPlan?.screens.map((s) => s.title).join(' · ') ??
+    'Architecture → Design → Screens';
 
   return (
     <View style={styles.root}>
@@ -158,31 +170,35 @@ export function InfiniteCanvas() {
           </GestureDetector>
 
           <Animated.View style={[styles.world, worldStyle]}>
-            {/* Connection hints */}
-            <View style={styles.flowHint} pointerEvents="none">
-              <Text style={styles.flowText}>
-                Architecture → Design System → Home → Profile ∥ Settings
-              </Text>
-            </View>
+            {agentOrder.length > 0 ? (
+              <View style={styles.flowHint} pointerEvents="none">
+                <Text style={styles.flowText}>
+                  {projectName.toUpperCase()} · {flow}
+                </Text>
+              </View>
+            ) : null}
 
-            {AGENT_ORDER.map((id) => (
-              <AgentCard
-                key={id}
-                agent={agents[id]}
-                selected={selectedAgentId === id}
-                scale={canvasScale}
-                onSelect={() => selectAgent(id)}
-                onMove={(x, y) => setAgentPosition(id, x, y)}
-              />
-            ))}
+            {agentOrder.map((id) =>
+              agents[id] ? (
+                <AgentCard
+                  key={id}
+                  agent={agents[id]}
+                  selected={selectedAgentId === id}
+                  scale={canvasScale}
+                  onSelect={() => selectAgent(id)}
+                  onMove={(x, y) => setAgentPosition(id, x, y)}
+                />
+              ) : null
+            )}
 
             {previews.map((agent) =>
-              agent ? (
+              agent?.screenSpec ? (
                 <PhonePreview
                   key={`preview-${agent.id}`}
                   agentId={agent.id}
-                  screenKey={agent.screenKey!}
-                  label={`${agent.name} preview`}
+                  screenSpec={agent.screenSpec}
+                  projectName={projectName}
+                  label={`${agent.screenSpec.title} preview`}
                   color={agent.color}
                   x={agent.previewPosition.x}
                   y={agent.previewPosition.y}
@@ -197,23 +213,16 @@ export function InfiniteCanvas() {
 
           {phase === 'idle' ? (
             <View style={styles.emptyOverlay} pointerEvents="box-none">
-              <View style={styles.emptyCard}>
-                <Text style={styles.emptyTitle}>AI design crew on standby</Text>
-                <Text style={styles.emptyBody}>
-                  Generate runs Architecture and Design System first, ships Home,
-                  then Profile and Settings in parallel — all on shared tokens.
-                </Text>
-                <Pressable
-                  onPress={generate}
-                  style={({ pressed }) => [
-                    styles.cta,
-                    { opacity: pressed ? 0.85 : 1 },
-                  ]}
-                >
-                  <Text style={styles.ctaLabel}>Generate project</Text>
-                </Pressable>
-                <Text style={styles.hint}>
-                  Drag agent cards · two-finger pan · pinch to zoom
+              <PromptComposer />
+            </View>
+          ) : null}
+
+          {phase === 'planning' ? (
+            <View style={styles.emptyOverlay} pointerEvents="none">
+              <View style={styles.planningCard}>
+                <Text style={styles.planningTitle}>Planning product…</Text>
+                <Text style={styles.planningBody}>
+                  Choosing navigation and screens from your brief.
                 </Text>
               </View>
             </View>
@@ -225,7 +234,7 @@ export function InfiniteCanvas() {
               style={styles.toolBtn}
             >
               <Text style={styles.toolLabel}>
-                Previews: {darkModePreview ? 'Dark' : 'Light'}
+                Previews {darkModePreview ? 'Dark' : 'Light'}
               </Text>
             </Pressable>
             <Pressable
@@ -237,6 +246,7 @@ export function InfiniteCanvas() {
             >
               <Text style={styles.toolLabel}>
                 {Math.round(canvasScale * 100)}%
+                {isReplayView ? ' · R' : ''}
               </Text>
             </Pressable>
           </View>
@@ -256,7 +266,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   world: {
-    width: 1600,
+    width: 1800,
     height: 1400,
   },
   flowHint: {
@@ -266,56 +276,33 @@ const styles = StyleSheet.create({
   },
   flowText: {
     color: workspace.textDim,
-    fontSize: 11,
-    letterSpacing: 0.6,
-    fontFamily: 'monospace',
+    fontSize: 10,
+    letterSpacing: 1.2,
+    fontFamily: workspace.mono,
   },
   emptyOverlay: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: spacing[4],
   },
-  emptyCard: {
-    maxWidth: 420,
+  planningCard: {
     backgroundColor: workspace.panelElevated,
-    borderRadius: 16,
     borderWidth: 1,
     borderColor: workspace.border,
     padding: spacing[6],
-    shadowColor: '#000',
-    shadowOpacity: 0.4,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
+    maxWidth: 360,
   },
-  emptyTitle: {
+  planningTitle: {
     color: workspace.text,
-    fontSize: typography.size.xl,
-    fontWeight: typography.weight.bold,
-    letterSpacing: -0.4,
-    marginBottom: spacing[2],
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.semibold,
+    marginBottom: 8,
   },
-  emptyBody: {
+  planningBody: {
     color: workspace.textMuted,
-    fontSize: typography.size.sm,
-    lineHeight: 20,
-    marginBottom: spacing[5],
-  },
-  cta: {
-    backgroundColor: workspace.accent,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  ctaLabel: {
-    color: '#07080C',
-    fontWeight: typography.weight.bold,
-    fontSize: typography.size.md,
-  },
-  hint: {
-    marginTop: spacing[4],
-    color: workspace.textDim,
-    fontSize: 11,
-    textAlign: 'center',
+    fontSize: 13,
+    lineHeight: 18,
   },
   toolbar: {
     position: 'absolute',
@@ -330,11 +317,10 @@ const styles = StyleSheet.create({
     borderColor: workspace.border,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 8,
   },
   toolLabel: {
     color: workspace.textMuted,
-    fontSize: 12,
-    fontWeight: typography.weight.medium,
+    fontSize: 11,
+    fontFamily: workspace.mono,
   },
 });

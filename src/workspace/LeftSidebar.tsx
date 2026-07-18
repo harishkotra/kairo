@@ -7,14 +7,18 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { AGENT_ORDER } from '../agents/definitions';
-import type { AgentId } from '../agents/types';
+import { isScreenAgent } from '../agents/definitions';
 import { workspace, radius, spacing, typography } from '../theme/tokens';
+import { useDisplayState } from './useDisplayState';
 import { useWorkspace } from './WorkspaceContext';
 
 type Section = 'agents' | 'screens' | 'components' | 'assets';
 
-const SECTIONS: { id: Section; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+const SECTIONS: {
+  id: Section;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
   { id: 'agents', label: 'Agents', icon: 'hardware-chip-outline' },
   { id: 'screens', label: 'Screens', icon: 'phone-portrait-outline' },
   { id: 'components', label: 'Components', icon: 'cube-outline' },
@@ -24,30 +28,33 @@ const SECTIONS: { id: Section; label: string; icon: keyof typeof Ionicons.glyphM
 const STATUS_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   idle: 'ellipse-outline',
   queued: 'time-outline',
+  waiting: 'hourglass-outline',
+  blocked: 'remove-circle-outline',
   running: 'sync-outline',
+  retrying: 'refresh-outline',
   complete: 'checkmark-circle',
   error: 'alert-circle',
 };
 
 export function LeftSidebar() {
-  const { agents, selectedAgentId, selectAgent, artifacts, completedScreens } =
-    useWorkspace();
+  const {
+    selectedAgentId,
+    selectAgent,
+    setView,
+    selectArtifact,
+    agentOrder,
+    appPlan,
+    completedScreenIds,
+  } = useWorkspace();
+  const { agents, artifacts } = useDisplayState();
   const [section, setSection] = useState<Section>('agents');
 
   const components = artifacts.filter((a) => a.type === 'component');
-  const screens = [
-    { key: 'home', label: 'Home', ready: completedScreens.includes('home') },
-    {
-      key: 'profile',
-      label: 'Profile',
-      ready: completedScreens.includes('profile'),
-    },
-    {
-      key: 'settings',
-      label: 'Settings',
-      ready: completedScreens.includes('settings'),
-    },
-  ];
+  const screens = (appPlan?.screens ?? []).map((s) => ({
+    key: s.id,
+    label: s.title,
+    ready: completedScreenIds.includes(s.id),
+  }));
 
   return (
     <View style={styles.sidebar}>
@@ -62,7 +69,7 @@ export function LeftSidebar() {
             >
               <Ionicons
                 name={s.icon}
-                size={14}
+                size={13}
                 color={active ? workspace.accent : workspace.textDim}
               />
               <Text
@@ -80,8 +87,14 @@ export function LeftSidebar() {
 
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
         {section === 'agents' &&
-          AGENT_ORDER.map((id: AgentId) => {
+          (agentOrder.length === 0 ? (
+            <Text style={styles.empty}>
+              Agents appear after you start a build from a product brief.
+            </Text>
+          ) : (
+          agentOrder.map((id) => {
             const agent = agents[id];
+            if (!agent) return null;
             const selected = selectedAgentId === id;
             return (
               <Pressable
@@ -100,35 +113,49 @@ export function LeftSidebar() {
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemTitle}>{agent.name}</Text>
-                  <Text style={styles.itemMeta}>{agent.role}</Text>
+                  <Text style={styles.itemMeta}>
+                    {agent.status === 'running'
+                      ? agent.currentTask
+                      : agent.role}
+                  </Text>
                 </View>
                 <Ionicons
-                  name={STATUS_ICON[agent.status]}
-                  size={16}
+                  name={STATUS_ICON[agent.status] ?? 'ellipse-outline'}
+                  size={15}
                   color={
                     agent.status === 'complete'
                       ? workspace.success
-                      : agent.status === 'running'
+                      : agent.status === 'running' ||
+                          agent.status === 'retrying'
                         ? agent.color
-                        : workspace.textDim
+                        : agent.status === 'blocked'
+                          ? '#FBBF24'
+                          : agent.status === 'waiting' ||
+                              agent.status === 'queued'
+                            ? '#60A5FA'
+                            : workspace.textDim
                   }
                 />
               </Pressable>
             );
-          })}
+          })
+          ))}
 
         {section === 'screens' &&
+          (screens.length === 0 ? (
+            <Text style={styles.empty}>Screens are planned from your brief.</Text>
+          ) : (
           screens.map((s) => (
             <View key={s.key} style={styles.item}>
               <Ionicons
                 name="phone-portrait-outline"
-                size={16}
+                size={15}
                 color={s.ready ? workspace.mint : workspace.textDim}
               />
               <View style={{ flex: 1 }}>
                 <Text style={styles.itemTitle}>{s.label}</Text>
                 <Text style={styles.itemMeta}>
-                  {s.ready ? 'Generated · token-bound' : 'Pending agent'}
+                  {s.ready ? 'Live · token-bound' : 'Pending agent'}
                 </Text>
               </View>
               {s.ready ? (
@@ -137,52 +164,64 @@ export function LeftSidebar() {
                 </View>
               ) : null}
             </View>
+          ))
           ))}
 
         {section === 'components' &&
           (components.length === 0 ? (
             <Text style={styles.empty}>
-              Components appear as the Design System and screen agents ship.
+              Components appear as Design System and screen agents ship.
             </Text>
           ) : (
             components.map((c) => (
-              <View key={c.name + c.agentId} style={styles.item}>
+              <Pressable
+                key={c.id}
+                onPress={() => {
+                  selectArtifact(c.id);
+                  setView('artifacts');
+                }}
+                style={styles.item}
+              >
                 <Ionicons
                   name="cube-outline"
-                  size={16}
+                  size={15}
                   color={workspace.violet}
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemTitle}>{c.name}</Text>
                   <Text style={styles.itemMeta}>{c.path}</Text>
                 </View>
-              </View>
+              </Pressable>
             ))
           ))}
 
         {section === 'assets' && (
           <>
             <View style={styles.item}>
-              <Ionicons name="image-outline" size={16} color={workspace.amber} />
+              <Ionicons
+                name="image-outline"
+                size={15}
+                color={workspace.amber}
+              />
               <View style={{ flex: 1 }}>
                 <Text style={styles.itemTitle}>icon.png</Text>
                 <Text style={styles.itemMeta}>assets/ · app icon</Text>
               </View>
             </View>
-            <View style={styles.item}>
+            <Pressable
+              onPress={() => setView('artifacts')}
+              style={styles.item}
+            >
               <Ionicons
                 name="color-palette-outline"
-                size={16}
+                size={15}
                 color={workspace.violet}
               />
               <View style={{ flex: 1 }}>
                 <Text style={styles.itemTitle}>tokens.ts</Text>
-                <Text style={styles.itemMeta}>Design system package</Text>
+                <Text style={styles.itemMeta}>Open in artifact graph</Text>
               </View>
-            </View>
-            <Text style={styles.empty}>
-              Screen agents reuse shared tokens — no one-off colors.
-            </Text>
+            </Pressable>
           </>
         )}
       </ScrollView>
@@ -192,9 +231,9 @@ export function LeftSidebar() {
 
 const styles = StyleSheet.create({
   sidebar: {
-    width: 240,
+    width: 232,
     backgroundColor: workspace.panel,
-    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: 1,
     borderRightColor: workspace.border,
   },
   tabs: {
@@ -202,22 +241,22 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     padding: spacing[2],
     gap: 4,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     borderBottomColor: workspace.border,
   },
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 5,
     borderRadius: radius.sm,
   },
   tabActive: {
     backgroundColor: workspace.accentSoft,
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: typography.weight.semibold,
   },
   list: { flex: 1 },
@@ -239,7 +278,6 @@ const styles = StyleSheet.create({
   colorBar: {
     width: 3,
     height: 28,
-    borderRadius: 2,
   },
   itemTitle: {
     color: workspace.text,
@@ -248,7 +286,7 @@ const styles = StyleSheet.create({
   },
   itemMeta: {
     color: workspace.textDim,
-    fontSize: 11,
+    fontSize: 10,
     marginTop: 1,
   },
   empty: {
@@ -258,15 +296,15 @@ const styles = StyleSheet.create({
     padding: spacing[3],
   },
   readyChip: {
-    backgroundColor: 'rgba(94, 234, 212, 0.12)',
+    backgroundColor: 'rgba(123, 196, 160, 0.12)',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
   },
   readyChipText: {
     color: workspace.mint,
     fontSize: 9,
     fontWeight: typography.weight.bold,
     letterSpacing: 0.8,
+    fontFamily: workspace.mono,
   },
 });

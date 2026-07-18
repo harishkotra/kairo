@@ -1,10 +1,13 @@
 /**
- * Shared design tokens — produced by the Design System Agent
- * and consumed by every screen agent.
+ * Shared design tokens — product UI (generated app) + Kairo workspace chrome.
+ *
+ * Workspace aesthetic: instrument-bay control surface —
+ * cold indigo night, brass signal accents, hard edges, tabular mono telemetry.
+ * Avoids generic “AI product” neon-on-black and cream-serif templates.
  */
 
 export const palette = {
-  // Brand
+  // Brand (product)
   aurora: '#6EE7FF',
   auroraDim: '#2A8FA3',
   violet: '#A78BFA',
@@ -12,7 +15,7 @@ export const palette = {
   amber: '#F5B942',
   mint: '#5EEAD4',
 
-  // Neutrals (dark-first)
+  // Neutrals
   ink: '#07080C',
   void: '#0B0D12',
   carbon: '#12151C',
@@ -24,11 +27,25 @@ export const palette = {
   snow: '#E8ECF4',
   white: '#FFFFFF',
 
-  // Light surface
   paper: '#F4F6FA',
   paperElevated: '#FFFFFF',
   inkOnLight: '#12151C',
   mutedOnLight: '#5A6275',
+
+  // Workspace instrument palette
+  bay: '#0A101C',
+  bayPanel: '#101826',
+  bayRaised: '#162033',
+  bayLine: '#243149',
+  bayLineSoft: '#1A2638',
+  signal: '#D4A574',
+  signalHot: '#E8C36A',
+  signalCool: '#7EB8C9',
+  phosphor: '#C5D4E8',
+  mute: '#6B7A90',
+  dim: '#3D4A5C',
+  danger: '#E07A6A',
+  ok: '#7BC4A0',
 } as const;
 
 export const colors = {
@@ -83,7 +100,7 @@ export const typography = {
   fonts: {
     display: 'System',
     body: 'System',
-    mono: 'SpaceMono',
+    mono: 'Menlo',
   },
   size: {
     xs: 11,
@@ -131,11 +148,11 @@ export const spacing = {
 
 export const radius = {
   none: 0,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 22,
-  '2xl': 28,
+  sm: 4,
+  md: 6,
+  lg: 8,
+  xl: 12,
+  '2xl': 16,
   full: 9999,
 } as const;
 
@@ -162,10 +179,10 @@ export const shadows = {
     elevation: 12,
   },
   glow: {
-    shadowColor: palette.aurora,
+    shadowColor: palette.signal,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
     elevation: 8,
   },
 } as const;
@@ -175,36 +192,53 @@ export const layout = {
   maxContentWidth: 480,
   headerHeight: 56,
   tabBarHeight: 64,
-  phoneWidth: 280,
-  phoneHeight: 560,
-  phoneRadius: 36,
+  /** iPhone-like design frame (Figma / device mock proportions) */
+  phoneWidth: 320,
+  phoneHeight: 692,
+  phoneRadius: 44,
+  phoneBezel: 10,
+  phoneStatusBar: 48,
+  phoneHomeIndicator: 20,
 } as const;
 
-/** Workspace chrome tokens (distinct from product UI) */
+/**
+ * Kairo workspace chrome — Figma-like design surface
+ * soft dark board, subtle grid, restrained accent
+ */
 export const workspace = {
-  bg: '#080A0F',
-  panel: '#0E1118',
-  panelElevated: '#141922',
-  border: '#1E2430',
-  borderSubtle: '#171C26',
-  grid: 'rgba(110, 231, 255, 0.04)',
-  text: '#E6EAF2',
-  textMuted: '#7A8499',
-  textDim: '#4A5366',
-  accent: palette.aurora,
-  accentSoft: 'rgba(110, 231, 255, 0.12)',
-  violet: palette.violet,
-  coral: palette.coral,
-  amber: palette.amber,
-  mint: palette.mint,
-  success: '#34D399',
-  danger: '#F87171',
+  bg: '#1A1A1E',
+  panel: '#222228',
+  panelElevated: '#2A2A32',
+  border: '#3A3A44',
+  borderSubtle: '#2E2E36',
+  grid: 'rgba(255, 255, 255, 0.035)',
+  gridMajor: 'rgba(255, 255, 255, 0.06)',
+  text: '#F2F2F4',
+  textMuted: '#9B9BA8',
+  textDim: '#6B6B78',
+  accent: '#0A84FF',
+  accentSoft: 'rgba(10, 132, 255, 0.14)',
+  accentHot: '#64D2FF',
+  accentCool: '#5AC8FA',
+  violet: '#BF5AF2',
+  coral: '#FF6961',
+  amber: '#FFD60A',
+  mint: '#30D158',
+  success: '#30D158',
+  danger: '#FF453A',
+  mono: 'Menlo',
+  device: {
+    frame: '#0C0C0E',
+    bezel: '#1C1C1E',
+    island: '#000000',
+    shadow: 'rgba(0,0,0,0.55)',
+  },
   agent: {
-    architecture: '#6EE7FF',
-    designSystem: '#A78BFA',
-    home: '#5EEAD4',
-    profile: '#F5B942',
-    settings: '#FF7A6E',
+    architecture: '#64D2FF',
+    designSystem: '#BF5AF2',
+    home: '#30D158',
+    profile: '#FFD60A',
+    settings: '#FF9F0A',
   },
 } as const;
 

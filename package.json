@@ -1,17 +1,22 @@
 {
-  "name": "expo-machines",
+  "name": "kairo",
   "version": "1.0.0",
+  "private": true,
+  "description": "Kairo — observability for autonomous software engineering (Expo multi-agent workspace)",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "agentos": "npm run dev --prefix agentos",
+    "agentos:install": "npm install --prefix agentos"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.6",
     "@expo/vector-icons": "^15.0.2",
+    "@lmnr-ai/lmnr": "^0.8.38",
     "expo": "~57.0.7",
     "expo-constants": "~57.0.6",
     "expo-linear-gradient": "~57.0.1",
@@ -23,6 +28,7 @@
     "react-dom": "19.2.3",
     "react-native": "0.86.0",
     "react-native-gesture-handler": "~2.32.0",
+    "react-native-qrcode-svg": "^6.3.21",
     "react-native-reanimated": "4.5.0",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.25.2",
@@ -34,6 +40,5 @@
     "@types/react": "~19.2.2",
     "babel-preset-expo": "^57.0.3",
     "typescript": "~5.9.2"
-  },
-  "private": true
+  }
 }

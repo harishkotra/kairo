@@ -1,13 +1,16 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Tabs, useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from '../../src/theme/ThemeProvider';
+import { useWorkspace } from '../../src/workspace/WorkspaceContext';
 import { spacing, typography } from '../../src/theme/tokens';
 
-function PreviewTabs() {
+function PreviewChrome({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { colors, isDark, toggle } = useTheme();
+  const { projectName, phase, appPlan } = useWorkspace();
+  const evolving = phase === 'running' || phase === 'planning';
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -26,8 +29,10 @@ function PreviewTabs() {
             Workspace
           </Text>
         </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>
-          Live Preview · Aurora Mobile
+        <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+          {projectName}
+          {evolving ? ' · updating' : ''}
+          {appPlan ? ` · ${appPlan.screens.length} screens` : ''}
         </Text>
         <Pressable onPress={toggle} style={styles.themeBtn}>
           <Ionicons
@@ -35,60 +40,9 @@ function PreviewTabs() {
             size={18}
             color={colors.primary}
           />
-          <Text
-            style={{
-              color: colors.primary,
-              fontSize: 13,
-              fontWeight: '600',
-            }}
-          >
-            {isDark ? 'Light' : 'Dark'}
-          </Text>
         </Pressable>
       </View>
-
-      <Tabs
-        screenOptions={{
-          headerShown: false,
-          tabBarActiveTintColor: colors.primary,
-          tabBarInactiveTintColor: colors.tabInactive,
-          tabBarStyle: {
-            backgroundColor: colors.tabBar,
-            borderTopColor: colors.border,
-            height: 64,
-            paddingBottom: 8,
-            paddingTop: 8,
-          },
-        }}
-      >
-        <Tabs.Screen
-          name="index"
-          options={{
-            title: 'Home',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="home-outline" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="profile"
-          options={{
-            title: 'Profile',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="person-outline" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="settings"
-          options={{
-            title: 'Settings',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="settings-outline" size={size} color={color} />
-            ),
-          }}
-        />
-      </Tabs>
+      {children}
     </View>
   );
 }
@@ -96,7 +50,11 @@ function PreviewTabs() {
 export default function PreviewLayout() {
   return (
     <ThemeProvider>
-      <PreviewTabs />
+      <PreviewChrome>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+        </Stack>
+      </PreviewChrome>
     </ThemeProvider>
   );
 }
@@ -116,7 +74,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    minWidth: 100,
+    minWidth: 90,
   },
   backLabel: {
     fontSize: typography.size.sm,
@@ -129,10 +87,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   themeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    minWidth: 100,
-    justifyContent: 'flex-end',
+    minWidth: 40,
+    alignItems: 'flex-end',
   },
 });

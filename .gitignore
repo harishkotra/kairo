@@ -1,41 +1,109 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
+# =========================
+# Dependencies
+# =========================
 node_modules/
+**/node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
 
-# Expo
+# =========================
+# Environment & secrets
+# =========================
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.p8
+*.key
+*.mobileprovision
+*.jks
+secrets/
+credentials/
+
+# =========================
+# Expo / React Native
+# =========================
 .expo/
+.expo-shared/
 dist/
 web-build/
 expo-env.d.ts
+*.jscache
 
-# Native
+# Native project folders (prebuild)
+/ios
+/android
 .kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
 
-# Metro
+# =========================
+# Metro / bundler
+# =========================
 .metro-health-check*
+*.metro-cache
+.cache/
 
-# debug
+# =========================
+# TypeScript / build
+# =========================
+*.tsbuildinfo
+*.js.map
+coverage/
+.turbo/
+.out/
+build/
+
+# =========================
+# agentOS local VMs
+# =========================
+agentos/.vms/
+agentos/**/.vms/
+
+# =========================
+# Logs & debug
+# =========================
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+pnpm-debug.*
+*.log
+logs/
 
-# macOS
+# =========================
+# OS / editors
+# =========================
 .DS_Store
-*.pem
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.swp
+*.swo
+*~
 
-# local env files
-.env*.local
+# =========================
+# Testing / misc
+# =========================
+.nyc_output/
+.jest/
+tmp/
+temp/
+*.orig.*
 
-# typescript
-*.tsbuildinfo
+# =========================
+# Optional local agent notes
+# =========================
+.claude/
+.agents/
+.cursor/
+.grok/
 
-# generated native folders
-/ios
-/android
+# Internal planning (not published)
+IMPLEMENTATION_PLAN.md
+CLAUDE.md
+AGENTS.md

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -6,8 +6,16 @@ import { StyleSheet } from 'react-native';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { WorkspaceProvider } from '../src/workspace/WorkspaceContext';
 import { workspace } from '../src/theme/tokens';
+import { initializeLaminarSdk } from '../src/telemetry/laminar';
+
+// Platform instruction: Laminar.initialize() via project API key
+initializeLaminarSdk();
 
 export default function RootLayout() {
+  useEffect(() => {
+    initializeLaminarSdk();
+  }, []);
+
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
