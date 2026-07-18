@@ -1,6 +1,5 @@
-import React from 'react';
-import { WorkspaceShell } from '../src/workspace/WorkspaceShell';
+import LandingPage from './landing';
 
-export default function WorkspaceScreen() {
-  return <WorkspaceShell />;
+export default function IndexScreen() {
+  return <LandingPage />;
 }

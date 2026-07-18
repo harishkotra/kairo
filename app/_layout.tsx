@@ -35,6 +35,7 @@ export default function RootLayout() {
               }}
             >
               <Stack.Screen name="index" />
+              <Stack.Screen name="workspace" />
               <Stack.Screen
                 name="preview"
                 options={{
