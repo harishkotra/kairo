@@ -249,3 +249,10 @@ MIT - see [LICENSE](./LICENSE).
 <img width="1960" height="1165" alt="Screenshot at Jul 18 17-37-46" src="https://github.com/user-attachments/assets/edb71634-73b1-4818-8db2-4445e6e82d90" />
 <img width="3920" height="12129" alt="screencapture-localhost-8081-2026-07-18-17_38_02" src="https://github.com/user-attachments/assets/a27c5c66-3ba3-4f79-9307-c464964b0eaf" />
 
+## Built with Codex and GPT-5.6
+
+Kairo was built entirely with the Codex desktop app, using the GPT-5.6 Terra model at High effort. Brainstorming on the idea, decisions to include agent-os vms, laminar, mem0 for shared memory across multiple agents was done using ChatGPT.
+
+Codex was used throughout the project lifecycle: shaping the product concept and architecture, implementing the Expo and React Native workspace, building the multi-agent orchestration and observability surfaces, integrating agentOS, Laminar, mem0, and OpenAI-compatible inference, and iterating on the UI, documentation, and verification.
+
+GPT-5.6 helped turn the product direction into working TypeScript code across the app shell, agent pipeline, canvas, timeline, artifact and decision views, live previews, and developer setup. The result is Kairo: an inspectable workspace for multi-agent mobile software engineering.
