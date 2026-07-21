@@ -136,32 +136,6 @@ Top bar shows **`lmnr`** when Laminar initializes successfully.
 
 ---
 
-## Project layout
-
-```
-app/
-  index.tsx                 # Workspace shell
-  preview/                  # Live product preview (dynamic tabs)
-src/
-  agents/                   # Dynamic agent factory from AppPlan
-  ai/                       # Planner + OpenAI-compatible client + inference
-  agentos/client.ts         # Per-agent VM client
-  artifacts/                # Artifact graph model
-  generated/DynamicScreen.tsx
-  memory/                   # mem0 + local memory service
-  metrics/                  # Run metrics
-  prompts/library.ts        # Example product briefs
-  telemetry/laminar.ts      # Laminar.initialize() + span facade
-  theme/                    # Product tokens + workspace chrome
-  components/ui/            # Shared primitives (Button, Card, …)
-  workspace/                # Canvas, inspector, observability views
-agentos/                    # Local VM bridge server
-IMPLEMENTATION_PLAN.md      # Feature phases (1–13)
-.env.example                # Env template (no secrets)
-```
-
----
-
 ## Architecture (high level)
 
 ```
@@ -232,9 +206,8 @@ MIT - see [LICENSE](./LICENSE).
 
 ---
 
-## Links
+## Tools used
 
-- Repo: https://github.com/harishkotra/kairo  
 - Expo docs (SDK 57): https://docs.expo.dev/versions/v57.0.0/  
 - Laminar: https://laminar.sh/docs  
 - agentOS concepts: https://agentos-sdk.dev/docs/
